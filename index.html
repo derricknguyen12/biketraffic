@@ -4,11 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="global.css">
-    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="map.css">
     <title>Bike Traffic In Boston</title>
+
+    <!-- Mapbox GL JS CSS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
 </head>
 <body>
-    <h1>Bike Traffic In Boston Area</h1>
-    <p>This interactive map brings Boston’s bike traffic to life, letting you explore cycling patterns across the city at different times of the day. 🚴‍♂️📍</p>
+    <h1>🚴‍♂️ Bike Traffic In Boston Area</h1>
+    <p>This interactive map brings Boston’s bike traffic to life, letting you explore cycling patterns across the city at different times of the day.📍</p>
+
+    <div id="map"></div>
+
+    <!-- Mapbox GL JS JavaScript -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+    <!-- Load your custom map initialization script -->
+    <script src="map.js"></script>
+
+
 </body>
 </html>
