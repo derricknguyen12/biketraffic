@@ -1,11 +1,5 @@
 mapboxgl.accessToken = 'pk.eyJ1IjoiZHRuMDIwIiwiYSI6ImNtN2F3YmZ3dDA4bGgya3B4ZnZwa2NqMnYifQ._h3xq4NDM_zuHkrAGxrnKQ';
 
-const svg = d3.select('#map').select('svg');
-let stations = [];
-let circles;
-let departures;
-let trips;
-
 const map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/mapbox/streets-v12',
@@ -14,6 +8,16 @@ const map = new mapboxgl.Map({
     minZoom: 5,
     maxZoom: 18
 });
+
+const svg = d3.select('#map').select('svg');
+let stations = [];
+let circles;
+let trips;
+let filteredTrips = [];
+let filteredArrivals = new Map();
+let filteredDepartures = new Map();
+let filteredStations = [];
+let stationFlow = d3.scaleQuantize().domain([0, 1]).range([0, 0.5, 1]);
 
 
 map.on('load', () => {
@@ -68,8 +72,6 @@ map.on('load', () => {
               })
               .attr('opacity', 0.8);
         });
-
-
     
         updatePositions();
 
@@ -89,13 +91,13 @@ map.on('load', () => {
             trip.started_at = new Date(trip.start_time);
             trip.ended_at = new Date(trip.end_time);
       }
-        departures = d3.rollup(
+        let departures = d3.rollup(
             trips,
             (v) => v.length,
             (d) => d.start_station_id,
         );
 
-        arrivals = d3.rollup(
+        let arrivals = d3.rollup(
             trips,
             (v) => v.length,
             (d) => d.end_station_id,
@@ -116,16 +118,24 @@ map.on('load', () => {
             .range(timeFilter === -1 ? [0, 25] : [3, 50]);
 
 
-        circles.attr('r', (d) => radiusScale(d.totalTraffic));
-
-        circles.select('title').remove();
-            
-        circles.each(function(d) {
-          d3.select(this)
-            .append('title')
-            .text(`${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`);
-        });;
+        circles
+            .data(stations)
+            .attr('r', (d) => radiusScale(d.totalTraffic))
+            .each(function(d) {
+                d3.select(this)
+                  .append('title')
+                  .text(`${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`);
+            })
+            .style("--departure-ratio", d => stationFlow(d.departures / d.totalTraffic));
+        
+        filterTripsbyTime();
+        updateCircleSizes();
+        
+                
+    }).catch(error => {
+        console.error("Error loading the traffic data:", error);
     });
+
 });
 
 function getCoords(station) {
@@ -145,66 +155,79 @@ const timeSlider = document.getElementById('time-slider');
 const selectedTime = document.getElementById('selected-time');
 const anyTimeLabel = document.getElementById('any-time');
 
-let filteredTrips = [];
-let filteredArrivals = new Map();
-let filteredDepartures = new Map();
-let filteredStations = [];
-
-function minutesSinceMidnight(date) {
-    return date.getHours() * 60 + date.getMinutes();
+function formatTime(minutes) {
+  const date = new Date(0, 0, 0, 0, minutes);
+  return date.toLocaleString('en-US', { timeStyle: 'short' });
 }
 
-function formatTime(minutes) {
-    const date = new Date(0, 0, 0, 0, minutes);
-    return date.toLocaleString('en-US', { timeStyle: 'short' });
+function updateTimeDisplay() {
+  timeFilter = Number(timeSlider.value);
+
+  if (timeFilter === -1) {
+    selectedTime.textContent = '';
+    anyTimeLabel.style.display = 'block';
+  } else {
+    selectedTime.textContent = formatTime(timeFilter);
+    anyTimeLabel.style.display = 'none';
+  }
+
+  filterTripsbyTime();
+  updateCircleSizes();
+}
+
+function minutesSinceMidnight(date) {
+  return date.getHours() * 60 + date.getMinutes();
 }
 
 function filterTripsbyTime() {
-    filteredTrips = timeFilter === -1
-        ? trips
-        : trips.filter((trip) => {
-            const startedMinutes = minutesSinceMidnight(trip.started_at);
-            const endedMinutes = minutesSinceMidnight(trip.ended_at);
-            return (
-              Math.abs(startedMinutes - timeFilter) <= 60 ||
-              Math.abs(endedMinutes - timeFilter) <= 60
-            );
-        });
+  filteredTrips = timeFilter === -1
+      ? trips
+      : trips.filter((trip) => {
+          const startedMinutes = minutesSinceMidnight(trip.started_at);
+          const endedMinutes = minutesSinceMidnight(trip.ended_at);
+          return (
+            Math.abs(startedMinutes - timeFilter) <= 60 ||
+            Math.abs(endedMinutes - timeFilter) <= 60
+          );
+  });
 
-        filteredDepartures = d3.rollup(
-            filteredTrips,
-            (v) => v.length,
-            (d) => d.start_station_id,
-        );
+  filteredDepartures = d3.rollup(
+      filteredTrips,
+      (v) => v.length,
+      (d) => d.start_station_id,
+  );
+      
+  filteredArrivals = d3.rollup(
+      filteredTrips,
+      (v) => v.length,
+      (d) => d.end_station_id
+  );
 
-        filteredArrivals = d3.rollup(
-            filteredTrips,
-            (v) => v.length,
-            (d) => d.end_station_id,
-        );
+  filteredStations = stations.map((station) => {
+      let id = station.short_name;
+      station = { ...station }; 
+      station.arrivals = filteredArrivals.get(id) ?? 0;
+      station.departures = filteredDepartures.get(id) ?? 0;
+      station.totalTraffic = station.arrivals + station.departures;
+      return station;
+  });
 
-        filteredStations = stations.map((station) => {
-            station = { ...station };
-            let id = station.short_name;
-            station.arrivals = filteredArrivals.get(id) ?? 0;
-            station.departures = filteredDepartures.get(id) ?? 0;
-            station.totalTraffic = station.arrivals + station.departures;
-            return station;
-        });
+  updateCircleSizes();
 }
 
+function updateCircleSizes() {
+  const radiusScale = d3
+      .scaleSqrt()
+      .domain([0, d3.max(filteredStations, (d) => d.totalTraffic)])
+      .range(timeFilter === -1 ? [0, 25] : [0, 25]);
 
-function updateTimeDisplay() {
-    timeFilter = Number(timeSlider.value);
-  
-    if (timeFilter === -1) {
-      selectedTime.textContent = '';
-      anyTimeLabel.style.display = 'block';
-    } else {
-      selectedTime.textContent = formatTime(timeFilter);
-      anyTimeLabel.style.display = 'none';
-    }
-  
-    filterTripsbyTime();
-
+  circles
+      .data(filteredStations)
+      .attr('r', (d) => radiusScale(d.totalTraffic))
+      .style("--departure-ratio", d => stationFlow(d.departures / d.totalTraffic))
+      .select('title')
+      .text(d => `${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`);
 }
+
+timeSlider.addEventListener('input', updateTimeDisplay);
+updateTimeDisplay();
