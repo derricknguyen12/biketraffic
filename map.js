@@ -1,5 +1,3 @@
-// import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
-
 mapboxgl.accessToken = 'pk.eyJ1IjoiZHRuMDIwIiwiYSI6ImNtN2F3YmZ3dDA4bGgya3B4ZnZwa2NqMnYifQ._h3xq4NDM_zuHkrAGxrnKQ';
 
 const map = new mapboxgl.Map({
@@ -25,7 +23,7 @@ let stationFlow = d3.scaleQuantize().domain([0, 1]).range([0, 0.5, 1]);
 map.on('load', () => {
     map.addSource('boston_route', {
         type: 'geojson',
-        data: 'https://bostonopendata-boston.opendata.arcgis.com/datasets/boston::existing-bike-network-2022.geojson?'
+        data: 'https://bostonopendata-boston.opendata.arcgis.com/datasets/boston::existing-bike-network-2022.geojson?...'
     });
 
     map.addSource('cambridge_route', {
@@ -34,7 +32,7 @@ map.on('load', () => {
     });
 
     map.addLayer({
-        id: 'bike-lanes-boston',
+        id: 'bike-lanes',
         type: 'line',
         source: 'boston_route',
         paint: {
@@ -45,7 +43,7 @@ map.on('load', () => {
     });
 
     map.addLayer({
-      id: 'bike-lanes-cambridge',
+      id: 'bike-lanes-cambridges',
       type: 'line',
       source: 'cambridge_route',
       paint: {
@@ -53,7 +51,7 @@ map.on('load', () => {
           'line-width': 4,
           'line-opacity': 0.5
       }
-  });
+    });
 
     const jsonurl = 'https://dsc106.com/labs/lab07/data/bluebikes-stations.json';
     d3.json(jsonurl).then(jsonData => {
@@ -69,28 +67,8 @@ map.on('load', () => {
           .attr('fill', 'steelblue')
           .attr('stroke', 'white')
           .attr('stroke-width', 1)
-          .attr('opacity', 0.8)
-          .attr('fill-opacity', 0.6);
+          .attr('opacity', 0.8);
 
-        circles.on('mouseover', function(event, d) {
-            d3.select(this)
-              .transition()
-              .duration(200)
-              .attr('r', function() { 
-                return radiusScale(d.totalTraffic) * 1.2;
-              })
-              .attr('opacity', 1);
-        })
-        .on('mouseout', function(event, d) {
-            d3.select(this)
-              .transition()
-              .duration(200)
-              .attr('r', function() { 
-                return radiusScale(d.totalTraffic);
-              })
-              .attr('opacity', 0.8);
-        });
-    
         updatePositions();
 
         map.on('move', updatePositions);
@@ -102,12 +80,13 @@ map.on('load', () => {
         console.error('Error loading JSON:', error);
     });
 
-    d3.csv('https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv').then(data => {
+    d3.csv("https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv").then(data => {
         trips = data;
+        console.log("Traffic data loaded", trips);
 
         for (let trip of trips) {
-            trip.started_at = new Date(trip.start_time);
-            trip.ended_at = new Date(trip.end_time);
+            trip.started_at = new Date(trip.started_at);
+            trip.ended_at = new Date(trip.ended_at);
         }
 
         let departures = d3.rollup(
