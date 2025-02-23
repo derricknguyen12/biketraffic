@@ -1,3 +1,5 @@
+// import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
+
 mapboxgl.accessToken = 'pk.eyJ1IjoiZHRuMDIwIiwiYSI6ImNtN2F3YmZ3dDA4bGgya3B4ZnZwa2NqMnYifQ._h3xq4NDM_zuHkrAGxrnKQ';
 
 const map = new mapboxgl.Map({
@@ -26,16 +28,32 @@ map.on('load', () => {
         data: 'https://bostonopendata-boston.opendata.arcgis.com/datasets/boston::existing-bike-network-2022.geojson?'
     });
 
+    map.addSource('cambridge_route', {
+      type: 'geojson',
+      data: 'https://raw.githubusercontent.com/cambridgegis/cambridgegis_data/main/Recreation/Bike_Facilities/RECREATION_BikeFacilities.geojson'
+    });
+
     map.addLayer({
-        id: 'bike-lanes',
+        id: 'bike-lanes-boston',
         type: 'line',
         source: 'boston_route',
         paint: {
             'line-color': 'green',
-            'line-width': 3,
-            'line-opacity': 0.4
+            'line-width': 4,
+            'line-opacity': 0.5
         }
     });
+
+    map.addLayer({
+      id: 'bike-lanes-cambridge',
+      type: 'line',
+      source: 'cambridge_route',
+      paint: {
+          'line-color': 'green',
+          'line-width': 4,
+          'line-opacity': 0.5
+      }
+  });
 
     const jsonurl = 'https://dsc106.com/labs/lab07/data/bluebikes-stations.json';
     d3.json(jsonurl).then(jsonData => {
@@ -50,9 +68,9 @@ map.on('load', () => {
           .attr('r', 5)
           .attr('fill', 'steelblue')
           .attr('stroke', 'white')
-          .attr('fill-opacity', 0.6)
           .attr('stroke-width', 1)
-          .attr('opacity', 0.8);
+          .attr('opacity', 0.8)
+          .attr('fill-opacity', 0.6);
 
         circles.on('mouseover', function(event, d) {
             d3.select(this)
@@ -90,7 +108,8 @@ map.on('load', () => {
         for (let trip of trips) {
             trip.started_at = new Date(trip.start_time);
             trip.ended_at = new Date(trip.end_time);
-      }
+        }
+
         let departures = d3.rollup(
             trips,
             (v) => v.length,
@@ -110,13 +129,11 @@ map.on('load', () => {
           station.totalTraffic = station.arrivals + station.departures;
           return station;
         });
-      
 
         const radiusScale = d3
             .scaleSqrt()
             .domain([0, d3.max(stations, (d) => d.totalTraffic)])
-            .range(timeFilter === -1 ? [0, 25] : [3, 50]);
-
+            .range([0, 25]);
 
         circles
             .data(stations)
